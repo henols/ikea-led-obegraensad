@@ -18,6 +18,7 @@ void sendInfo()
 
   jsonDocument["status"] = currentStatus;
   jsonDocument["plugin"] = pluginManager.getActivePlugin()->getId();
+  jsonDocument["persist-plugin"] = pluginManager.getPersistedPluginId();
   jsonDocument["event"] = "info";
   jsonDocument["rotation"] = Screen.currentRotation;
   jsonDocument["brightness"] = Screen.getCurrentBrightness();
@@ -41,23 +42,6 @@ void sendInfo()
     object["id"] = plugin->getId();
     object["name"] = plugin->getName();
   }
-  String output;
-  serializeJson(jsonDocument, output);
-  ws.textAll(output);
-  jsonDocument.clear();
-}
-
-void sendMinimalInfo()
-{
-  DynamicJsonDocument jsonDocument(6144);
-
-  jsonDocument["status"] = currentStatus;
-  jsonDocument["plugin"] = pluginManager.getActivePlugin()->getId();
-  jsonDocument["event"] = "minimal-info";
-  jsonDocument["rotation"] = Screen.currentRotation;
-  jsonDocument["brightness"] = Screen.getCurrentBrightness();
-  jsonDocument["scheduleActive"] = Scheduler.isActive;
-
   String output;
   serializeJson(jsonDocument, output);
   ws.textAll(output);
@@ -108,19 +92,21 @@ void onWsEvent(
           if (!strcmp(event, "plugin"))
           {
             int pluginId = wsRequest["plugin"];
+
             Scheduler.clearSchedule();
             pluginManager.setActivePluginById(pluginId);
-
-            sendMinimalInfo();
+            sendInfo();
           }
           else if (!strcmp(event, "persist-plugin"))
           {
             pluginManager.persistActivePlugin();
+            sendInfo();
           }
           else if (!strcmp(event, "rotate"))
           {
             bool isRight = (bool)!strcmp(wsRequest["direction"], "right");
             Screen.setCurrentRotation((Screen.currentRotation + (isRight ? 1 : 3)) % 4, true);
+            sendInfo();
           }
           else if (!strcmp(event, "info"))
           {
@@ -130,6 +116,7 @@ void onWsEvent(
           {
             uint8_t brightness = wsRequest["brightness"].as<uint8_t>();
             Screen.setBrightness(brightness, true);
+            sendInfo();
           }
         }
       }
